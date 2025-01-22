@@ -885,7 +885,7 @@ function App() {
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold flex items-center gap-2">
               <TrendingUp className="text-green-400" />
-              Crypto Price Tracker
+              Crypto Price Bot
             </h1>
             <button
               onClick={fetchCryptoData}
