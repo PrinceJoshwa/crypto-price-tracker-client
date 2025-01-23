@@ -995,7 +995,7 @@ function App() {
     const interval = setInterval(() => {
       setNextRefresh((prev) => (prev === 1 ? 5 : prev - 1));
       if (nextRefresh === 1) fetchCryptoData();
-    }, 1000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [nextRefresh]);
