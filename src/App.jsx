@@ -961,93 +961,127 @@
 // export default App;
 
 
+import React, { useState, useEffect } from "react"
+import axios from "axios"
+import { TrendingUp, TrendingDown, Search, RefreshCcw, Sun, Moon } from "lucide-react"
 
-
-
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { TrendingUp, TrendingDown, Search, RefreshCcw, Sun, Moon } from 'lucide-react';
-
-const API_URL = import.meta.env.VITE_API_URL || 'https://crypto-price-tracker-server.vercel.app/api';
+// Use environment variable for API URL if available
+const API_URL = import.meta.env.VITE_API_URL || "https://crypto-price-tracker-server.vercel.app/api"
 
 function App() {
-  const [cryptoData, setCryptoData] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [nextRefresh, setNextRefresh] = useState(5);
-  const [theme, setTheme] = useState('dark');
+  const [cryptoData, setCryptoData] = useState([])
+  const [searchTerm, setSearchTerm] = useState("")
+  const [loading, setLoading] = useState(true)
+  const [countdown, setCountdown] = useState(5)
+  const [isDarkMode, setIsDarkMode] = useState(true)
 
   const fetchCryptoData = async () => {
     try {
-      setLoading(true);
-      const response = await axios.get(`${API_URL}/crypto/prices`);
-      setCryptoData(response.data);
+      setLoading(true)
+      // First, attempt to fetch data from the backend
+      const response = await axios.get(`${API_URL}/crypto/prices`)
+      setCryptoData(response.data)
     } catch (error) {
-      console.error('Error fetching from backend:', error);
+      console.error("Error fetching from backend, falling back to CoinGecko API:", error)
+      // Fallback to CoinGecko API if backend fails
+      try {
+        const response = await axios.get("https://api.coingecko.com/api/v3/coins/markets", {
+          params: {
+            vs_currency: "usd",
+            order: "market_cap_desc",
+            per_page: 20,
+            sparkline: false,
+          },
+        })
+        // Transform CoinGecko data to match backend format
+        const transformedData = response.data.map((coin) => ({
+          cryptoId: coin.id,
+          name: coin.name,
+          symbol: coin.symbol,
+          currentPrice: coin.current_price,
+          image: coin.image,
+          marketCap: coin.market_cap,
+          priceChangePercentage24h: coin.price_change_percentage_24h,
+        }))
+        setCryptoData(transformedData)
+      } catch (fallbackError) {
+        console.error("Error fetching from CoinGecko:", fallbackError)
+      }
     } finally {
-      setLoading(false);
+      setLoading(false)
+      setCountdown(5)
     }
-  };
+  }
 
   useEffect(() => {
-    fetchCryptoData();
+    fetchCryptoData()
+    const fetchInterval = setInterval(fetchCryptoData, 5000) // Refresh every 5 seconds
 
-    const interval = setInterval(() => {
-      setNextRefresh((prev) => (prev === 1 ? 5 : prev - 1));
-      if (nextRefresh === 5) fetchCryptoData();
-    }, 10000);
+    const countdownInterval = setInterval(() => {
+      setCountdown((prevCountdown) => (prevCountdown > 0 ? prevCountdown - 1 : 5))
+    }, 1000)
 
-    return () => clearInterval(interval);
-  }, [nextRefresh]);
+    return () => {
+      clearInterval(fetchInterval)
+      clearInterval(countdownInterval)
+    }
+  }, [])
 
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
-    document.documentElement.classList.toggle('dark');
-  };
+  useEffect(() => {
+    document.body.classList.toggle("dark", isDarkMode)
+  }, [isDarkMode])
 
-  const filteredCryptos = cryptoData.filter((crypto) =>
-    crypto.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    crypto.symbol.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCryptos = cryptoData.filter(
+    (crypto) =>
+      crypto.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      crypto.symbol.toLowerCase().includes(searchTerm.toLowerCase()),
+  )
+
+  const toggleDarkMode = () => {
+    setIsDarkMode(!isDarkMode)
+  }
 
   return (
-    <div className={`${theme === 'dark' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-900'} min-h-screen`}>
+    <div className={`min-h-screen ${isDarkMode ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-900"}`}>
       {/* Header */}
-      <header className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-300'} shadow-lg`}>
+      <header className={`${isDarkMode ? "bg-gray-800" : "bg-white"} shadow-lg`}>
         <div className="container mx-auto px-4 py-6">
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <TrendingUp className="text-green-400" />
+              <TrendingUp className={isDarkMode ? "text-green-400" : "text-green-600"} />
               Crypto Price Bot
             </h1>
             <div className="flex items-center gap-4">
-              <span className="text-sm">{`Next refresh in ${nextRefresh}s`}</span>
+              <span className="text-sm">Next refresh in {countdown}s</span>
               <button
                 onClick={fetchCryptoData}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors"
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors text-white"
               >
                 <RefreshCcw size={18} />
                 Refresh
               </button>
               <button
-                onClick={toggleTheme}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
+                onClick={toggleDarkMode}
+                className={`p-2 rounded-full ${isDarkMode ? "bg-yellow-400 text-gray-900" : "bg-gray-800 text-white"}`}
+                aria-label={isDarkMode ? "Switch to light mode" : "Switch to dark mode"}
               >
-                {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-                {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}
+                {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
               </button>
             </div>
           </div>
 
           {/* Search Bar */}
           <div className="mt-6 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <Search
+              className={`absolute left-3 top-1/2 transform -translate-y-1/2 ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}
+              size={20}
+            />
             <input
               type="text"
               placeholder="Search cryptocurrencies..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className={`${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'} w-full pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
+              className={`w-full pl-10 pr-4 py-2 ${isDarkMode ? "bg-gray-700" : "bg-gray-200"} rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
             />
           </div>
         </div>
@@ -1057,36 +1091,45 @@ function App() {
       <main className="container mx-auto px-4 py-8">
         {loading ? (
           <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent"></div>
+            <div
+              className={`animate-spin rounded-full h-12 w-12 border-4 ${isDarkMode ? "border-blue-500" : "border-blue-600"} border-t-transparent`}
+            ></div>
           </div>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredCryptos.map((crypto) => (
-              <div key={crypto.cryptoId} className={`${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200'} rounded-lg p-6 shadow-lg hover:shadow-xl transition-shadow`}>
+              <div
+                key={crypto.cryptoId}
+                className={`${isDarkMode ? "bg-gray-800" : "bg-white"} rounded-lg p-6 shadow-lg hover:shadow-xl transition-shadow`}
+              >
                 <div className="flex items-center gap-4 mb-4">
-                  <img src={crypto.image} alt={crypto.name} className="w-12 h-12" />
+                  <img src={crypto.image || "/placeholder.svg"} alt={crypto.name} className="w-12 h-12" />
                   <div>
                     <h2 className="text-xl font-semibold">{crypto.name}</h2>
-                    <p className="uppercase">{crypto.symbol}</p>
+                    <p className={`${isDarkMode ? "text-gray-400" : "text-gray-600"} uppercase`}>{crypto.symbol}</p>
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Price:</span>
+                    <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>Price:</span>
                     <span className="font-medium">${crypto.currentPrice.toLocaleString()}</span>
                   </div>
 
                   <div className="flex justify-between">
-                    <span className="text-gray-400">24h Change:</span>
-                    <span className={`flex items-center gap-1 ${crypto.priceChangePercentage24h > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>24h Change:</span>
+                    <span
+                      className={`flex items-center gap-1 ${
+                        crypto.priceChangePercentage24h > 0 ? "text-green-400" : "text-red-400"
+                      }`}
+                    >
                       {crypto.priceChangePercentage24h > 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
                       {Math.abs(crypto.priceChangePercentage24h).toFixed(2)}%
                     </span>
                   </div>
 
                   <div className="flex justify-between">
-                    <span className="text-gray-400">Market Cap:</span>
+                    <span className={isDarkMode ? "text-gray-400" : "text-gray-600"}>Market Cap:</span>
                     <span className="font-medium">${crypto.marketCap.toLocaleString()}</span>
                   </div>
                 </div>
@@ -1096,7 +1139,8 @@ function App() {
         )}
       </main>
     </div>
-  );
+  )
 }
 
-export default App;
+export default App
+
