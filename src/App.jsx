@@ -822,7 +822,7 @@ import axios from 'axios';
 import { TrendingUp, TrendingDown, Search, RefreshCcw } from 'lucide-react';
 
 // Use environment variable for API URL if available
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || 'https://crypto-price-tracker-server.vercel.app/api';
 
 function App() {
   const [cryptoData, setCryptoData] = useState([]);
